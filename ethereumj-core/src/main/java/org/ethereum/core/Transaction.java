@@ -1,3 +1,20 @@
+/*
+ * Copyright (c) [2016] [ <ether.camp> ]
+ * This file is part of the ethereumJ library.
+ *
+ * The ethereumJ library is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * The ethereumJ library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with the ethereumJ library. If not, see <http://www.gnu.org/licenses/>.
+ */
 package org.ethereum.core;
 
 import static org.apache.commons.lang3.ArrayUtils.isEmpty;
@@ -357,7 +374,7 @@ public class Transaction {
 
     public synchronized byte[] getSender() {
         try {
-            if (sendAddress == null) {
+            if (sendAddress == null && getSignature() != null) {
                 sendAddress = ECKey.signatureToAddress(getRawHash(), getSignature());
             }
             return sendAddress;
@@ -405,7 +422,7 @@ public class Transaction {
                 ", gasPrice=" + ByteUtil.toHexString(gasPrice) +
                 ", gas=" + ByteUtil.toHexString(gasLimit) +
                 ", receiveAddress=" + ByteUtil.toHexString(receiveAddress) +
-                ", sendAddress=" + ByteUtil.toHexString(getSender()) +
+                ", sendAddress=" + ByteUtil.toHexString(getSender())  +
                 ", value=" + ByteUtil.toHexString(value) +
                 ", data=" + dataS +
                 ", signatureV=" + (signature == null ? "" : signature.v) +

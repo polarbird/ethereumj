@@ -24,10 +24,10 @@ plugins {
 apply plugin: 'propdeps-maven'
 apply plugin: 'com.jfrog.artifactory-upload'
 
-sourceCompatibility = 1.7
+sourceCompatibility = 1.8
 
 mainClassName = 'org.ethereum.Start'
-applicationDefaultJvmArgs = ["-server", "-Xss2m", "-Xmx1024M", "-XX:-OmitStackTraceInFastThrow"]
+applicationDefaultJvmArgs = ["-server", "-Xss4m", "-Xmx2G", "-XX:-OmitStackTraceInFastThrow"]
 
 if ( project.hasProperty('jvmArgs') ) {
     applicationDefaultJvmArgs = applicationDefaultJvmArgs + project.jvmArgs.split('\\s+').toList()
@@ -44,12 +44,6 @@ sourceSets.main.java.srcDirs += generatedSrcDir
 
 tasks.withType(JavaCompile){
     options.warnings = false
-}
-
-task runMorden (type: JavaExec) {
-    main = mainClassName
-    classpath = sourceSets.main.runtimeClasspath
-    jvmArgs = applicationDefaultJvmArgs + '-Dethereumj.conf.res=morden.conf'
 }
 
 task runRopsten (type: JavaExec) {
@@ -74,12 +68,12 @@ task tckRun(type:JavaExec){
 
     if (project.hasProperty("filePath")) {
         args = ["filerun", "$filePath"]
-        jvmArgs = ["-Xss2M"]
+        jvmArgs = ["-Xss4M"]
     }
 
     if (project.hasProperty("content")) {
         args = ["content", "$content"]
-        jvmArgs = ["-Xss2M"]
+        jvmArgs = ["-Xss4M"]
     }
 
     main = "org.ethereum.tck.RunTck"
@@ -94,7 +88,7 @@ test {
         logger.lifecycle("Running test: ${descriptor}")
     }
 
-    jvmArgs '-Xss2m', '-Xmx3G'
+    jvmArgs '-Xss8m', '-Xmx3G'
 
     testLogging {
         events "failed"
@@ -122,6 +116,8 @@ dependencies {
 
     compile "org.ethereum:leveldbjni-all:1.18.3"             // native leveldb components
 
+    compile "org.rocksdb:rocksdbjni:5.8.6"                   // RocksDB Java API
+
     compile "org.ethereum:solcJ-all:0.4.8"                   // Solidity Compiler win/mac/linux binaries
 
     compile "com.cedarsoftware:java-util:1.8.0" // for deep equals
@@ -138,19 +134,21 @@ dependencies {
     compile "org.springframework:spring-tx:${springVersion}"
     compile "org.springframework:spring-orm:${springVersion}"
     compile "com.typesafe:config:1.2.1"
-
-    compile "org.mapdb:mapdb:2.0-beta12"
+    compile "com.googlecode.concurrent-locks:concurrent-locks:1.0.0"
 
     compile("com.googlecode.json-simple:json-simple:1.1.1") {
         exclude group: 'junit', module: 'junit'
     }
+
+    compile "org.xerial.snappy:snappy-java:1.1.4" // Snappy compression
 
     // used to hide spring initialization logs messages in samples
     optional "org.slf4j:jcl-over-slf4j:${slf4jVersion}"
 
     testCompile "junit:junit:${junitVersion}"
     testCompile "org.springframework:spring-test:${springVersion}"
-    testCompile "org.mockito:mockito-all:1.9.5"
+    testCompile "org.mockito:mockito-core:2.+"
+    testCompile "com.github.briandilley.jsonrpc4j:jsonrpc4j:1.1"
 }
 
 
@@ -160,7 +158,7 @@ javadoc {
     options.addStringOption('-quiet')
     options.encoding = "UTF-8"
     options.links(
-            "http://docs.oracle.com/javase/7/docs/api/",
+            "http://docs.oracle.com/javase/8/docs/api/",
             "http://netty.io/4.0/api/"
     )
 }

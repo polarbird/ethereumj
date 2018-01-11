@@ -1,3 +1,20 @@
+/*
+ * Copyright (c) [2016] [ <ether.camp> ]
+ * This file is part of the ethereumJ library.
+ *
+ * The ethereumJ library is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * The ethereumJ library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with the ethereumJ library. If not, see <http://www.gnu.org/licenses/>.
+ */
 package org.ethereum.db;
 
 import org.ethereum.config.SystemProperties;
@@ -30,7 +47,7 @@ public class FlushDbManagerTest {
         final WriteCache<byte[], byte[]> cache2 = new WriteCache.BytesKey<>(db2, WriteCache.CacheType.SIMPLE);
         cache2.withSizeEstimators(ByteArrayEstimator, ByteArrayEstimator);
 
-        final DbFlushManager dbFlushManager = new DbFlushManager(SystemProperties.getDefault(), Collections.<DbSource>emptySet());
+        final DbFlushManager dbFlushManager = new DbFlushManager(SystemProperties.getDefault(), Collections.<DbSource>emptySet(), null);
         dbFlushManager.addCache(cache1);
         dbFlushManager.addCache(cache2);
         dbFlushManager.setSizeThreshold(1);
@@ -38,76 +55,64 @@ public class FlushDbManagerTest {
         final CountDownLatch latch = new CountDownLatch(1);
         final Throwable[] exception = new Throwable[1];
 
-        new Thread() {
-            @Override
-            public void run() {
-                try {
-                    for (int i = 0; i < 300; i++) {
-                        final int i_ = i;
-                        dbFlushManager.commit(new Runnable() {
-                            @Override
-                            public void run() {
-                                cache1.put(intToBytes(i_), intToBytes(i_));
-                                try {
-                                    Thread.sleep(5);
-                                } catch (InterruptedException e) {}
-                                cache2.put(intToBytes(i_), intToBytes(i_));
-                            }
-                        });
-                    }
-                } catch (Throwable e) {
-                    exception[0] = e;
-                    e.printStackTrace();
-                } finally {
-                    latch.countDown();
+        new Thread(() -> {
+            try {
+                for (int i = 0; i < 300; i++) {
+                    final int i_ = i;
+                    dbFlushManager.commit(() -> {
+                        cache1.put(intToBytes(i_), intToBytes(i_));
+                        try {
+                            Thread.sleep(5);
+                        } catch (InterruptedException e) {}
+                        cache2.put(intToBytes(i_), intToBytes(i_));
+                    });
                 }
+            } catch (Throwable e) {
+                exception[0] = e;
+                e.printStackTrace();
+            } finally {
+                latch.countDown();
             }
-        }.start();
+        }).start();
 
-        new Thread() {
-            @Override
-            public void run() {
-                try {
-                    while (true) {
-                        dbFlushManager.commit();
-                        Thread.sleep(5);
-                    }
-                } catch (Exception e) {
-                    exception[0] = e;
-                    e.printStackTrace();
-                } finally {
-                    latch.countDown();
+        new Thread(() -> {
+            try {
+                while (true) {
+                    dbFlushManager.commit();
+                    Thread.sleep(5);
                 }
+            } catch (Exception e) {
+                exception[0] = e;
+                e.printStackTrace();
+            } finally {
+                latch.countDown();
             }
-        }.start();
+        }).start();
 
-        new Thread() {
-            @Override
-            public void run() {
-                try {
-                    int cnt = 0;
-                    while (true) {
-                        synchronized (dbFlushManager) {
-                            for (; cnt < 300; cnt++) {
-                                byte[] val1 = db1.get(intToBytes(cnt));
-                                byte[] val2 = db2.get(intToBytes(cnt));
-                                if (val1 == null) {
-                                    Assert.assertNull(val2);
-                                    break;
-                                } else {
-                                    Assert.assertNotNull(val2);
-                                }
+        new Thread(() -> {
+            try {
+                int cnt = 0;
+                while (true) {
+                    synchronized (dbFlushManager) {
+                        for (; cnt < 300; cnt++) {
+                            byte[] val1 = db1.get(intToBytes(cnt));
+                            byte[] val2 = db2.get(intToBytes(cnt));
+                            if (val1 == null) {
+                                Assert.assertNull(val2);
+                                break;
+                            } else {
+                                Assert.assertNotNull(val2);
                             }
                         }
                     }
-                } catch (Exception e) {
-                    exception[0] = e;
-                    e.printStackTrace();
-                } finally {
-                    latch.countDown();
                 }
+            } catch (Exception e) {
+                exception[0] = e;
+                e.printStackTrace();
+            } finally {
+                latch.countDown();
             }
-        }.start();
+        }).start();
 
 
 

@@ -1,3 +1,20 @@
+/*
+ * Copyright (c) [2016] [ <ether.camp> ]
+ * This file is part of the ethereumJ library.
+ *
+ * The ethereumJ library is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * The ethereumJ library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with the ethereumJ library. If not, see <http://www.gnu.org/licenses/>.
+ */
 package org.ethereum.net.server;
 
 import io.netty.buffer.ByteBuf;
@@ -84,6 +101,9 @@ public class Channel {
     @Autowired
     private StaticMessages staticMessages;
 
+    @Autowired
+    private WireTrafficStats stats;
+
     private ChannelManager channelManager;
 
     private Eth eth = new EthAdapter();
@@ -109,6 +129,7 @@ public class Channel {
 
         pipeline.addLast("readTimeoutHandler",
                 new ReadTimeoutHandler(config.peerChannelReadTimeout(), TimeUnit.SECONDS));
+        pipeline.addLast(stats.tcp);
         pipeline.addLast("handshakeHandler", handshakeHandler);
 
         this.discoveryMode = discoveryMode;
@@ -139,33 +160,30 @@ public class Channel {
                                             HelloMessage helloRemote) throws IOException, InterruptedException {
 
         logger.debug("publicRLPxHandshakeFinished with " + ctx.channel().remoteAddress());
-        if (P2pHandler.isProtocolVersionSupported(helloRemote.getP2PVersion())) {
 
-            if (helloRemote.getP2PVersion() < 5) {
-                messageCodec.setSupportChunkedFrames(false);
-            }
+        messageCodec.setSupportChunkedFrames(false);
 
-            FrameCodecHandler frameCodecHandler = new FrameCodecHandler(frameCodec, this);
-            ctx.pipeline().addLast("medianFrameCodec", frameCodecHandler);
-            ctx.pipeline().addLast("messageCodec", messageCodec);
-            ctx.pipeline().addLast(Capability.P2P, p2pHandler);
+        FrameCodecHandler frameCodecHandler = new FrameCodecHandler(frameCodec, this);
+        ctx.pipeline().addLast("medianFrameCodec", frameCodecHandler);
 
-            p2pHandler.setChannel(this);
-            p2pHandler.setHandshake(helloRemote, ctx);
-
-            getNodeStatistics().rlpxHandshake.add();
+        if (SnappyCodec.isSupported(Math.min(config.defaultP2PVersion(), helloRemote.getP2PVersion()))) {
+            ctx.pipeline().addLast("snappyCodec", new SnappyCodec(this));
+            logger.debug("{}: use snappy compression", ctx.channel());
         }
+
+        ctx.pipeline().addLast("messageCodec", messageCodec);
+        ctx.pipeline().addLast(Capability.P2P, p2pHandler);
+
+        p2pHandler.setChannel(this);
+        p2pHandler.setHandshake(helloRemote, ctx);
+
+        getNodeStatistics().rlpxHandshake.add();
     }
 
-    public void sendHelloMessage(ChannelHandlerContext ctx, FrameCodec frameCodec, String nodeId,
-                                 HelloMessage inboundHelloMessage) throws IOException, InterruptedException {
+    public void sendHelloMessage(ChannelHandlerContext ctx, FrameCodec frameCodec,
+                                 String nodeId) throws IOException, InterruptedException {
 
         final HelloMessage helloMessage = staticMessages.createHelloMessage(nodeId);
-
-        if (inboundHelloMessage != null && P2pHandler.isProtocolVersionSupported(inboundHelloMessage.getP2PVersion())) {
-            // the p2p version can be downgraded if requested by peer and supported by us
-            helloMessage.setP2pVersion(inboundHelloMessage.getP2PVersion());
-        }
 
         ByteBuf byteBufMsg = ctx.alloc().buffer();
         frameCodec.writeFrame(new FrameCodec.Frame(helloMessage.getCode(), helloMessage.getEncoded()), byteBufMsg);

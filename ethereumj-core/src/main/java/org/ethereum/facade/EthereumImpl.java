@@ -1,3 +1,20 @@
+/*
+ * Copyright (c) [2016] [ <ether.camp> ]
+ * This file is part of the ethereumJ library.
+ *
+ * The ethereumJ library is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * The ethereumJ library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with the ethereumJ library. If not, see <http://www.gnu.org/licenses/>.
+ */
 package org.ethereum.facade;
 
 import org.apache.commons.lang3.ArrayUtils;
@@ -211,34 +228,45 @@ public class EthereumImpl implements Ethereum, SmartLifecycle {
         return callConstantImpl(tx, block).getReceipt();
     }
 
+    @Override
     public BlockSummary replayBlock(Block block) {
         List<TransactionReceipt> receipts = new ArrayList<>();
         List<TransactionExecutionSummary> summaries = new ArrayList<>();
 
-        Repository repository = ((Repository) worldManager.getRepository())
-                .getSnapshotTo(block.getStateRoot())
-                .startTracking();
+        Block parent = worldManager.getBlockchain().getBlockByHash(block.getParentHash());
+
+        if (parent == null) {
+            logger.info("Failed to replay block #{}, its ancestor is not presented in the db", block.getNumber());
+            return new BlockSummary(block, new HashMap<byte[], BigInteger>(), receipts, summaries);
+        }
+
+        Repository track = ((Repository) worldManager.getRepository())
+                .getSnapshotTo(parent.getStateRoot());
 
         try {
             for (Transaction tx : block.getTransactionsList()) {
-                org.ethereum.core.TransactionExecutor executor = commonConfig.transactionExecutor(
-                        tx, block.getCoinbase(), repository, worldManager.getBlockStore(),
-                        programInvokeFactory, block, worldManager.getListener(), 0);
 
-                executor.setLocalCall(true);
+                Repository txTrack = track.startTracking();
+                org.ethereum.core.TransactionExecutor executor = new org.ethereum.core.TransactionExecutor(
+                        tx, block.getCoinbase(), txTrack, worldManager.getBlockStore(),
+                        programInvokeFactory, block, worldManager.getListener(), 0)
+                        .withCommonConfig(commonConfig);
+
                 executor.init();
                 executor.execute();
                 executor.go();
 
                 TransactionExecutionSummary summary = executor.finalization();
+
+                txTrack.commit();
+
                 TransactionReceipt receipt = executor.getReceipt();
-                // TODO: change to repository.getRoot() after RepositoryTrack implementation
-                receipt.setPostTxState(ArrayUtils.EMPTY_BYTE_ARRAY);
+                receipt.setPostTxState(track.getRoot());
                 receipts.add(receipt);
                 summaries.add(summary);
             }
         } finally {
-            repository.rollback();
+            track.rollback();
         }
 
         return new BlockSummary(block, new HashMap<byte[], BigInteger>(), receipts, summaries);
@@ -251,9 +279,10 @@ public class EthereumImpl implements Ethereum, SmartLifecycle {
                 .startTracking();
 
         try {
-            org.ethereum.core.TransactionExecutor executor = commonConfig.transactionExecutor
+            org.ethereum.core.TransactionExecutor executor = new org.ethereum.core.TransactionExecutor
                     (tx, block.getCoinbase(), repository, worldManager.getBlockStore(),
                             programInvokeFactory, block, new EthereumListenerAdapter(), 0)
+                    .withCommonConfig(commonConfig)
                     .setLocalCall(true);
 
             executor.init();

@@ -1,3 +1,20 @@
+/*
+ * Copyright (c) [2016] [ <ether.camp> ]
+ * This file is part of the ethereumJ library.
+ *
+ * The ethereumJ library is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * The ethereumJ library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with the ethereumJ library. If not, see <http://www.gnu.org/licenses/>.
+ */
 package org.ethereum.net.server;
 
 import org.apache.commons.collections4.map.LRUMap;
@@ -85,42 +102,25 @@ public class ChannelManager {
         this.peerServer = peerServer;
         maxActivePeers = config.maxActivePeers();
         trustedPeers = config.peerTrusted();
-        mainWorker.scheduleWithFixedDelay(new Runnable() {
-            @Override
-            public void run() {
-                try {
-                    processNewPeers();
-                } catch (Throwable t) {
-                    logger.error("Error", t);
-                }
+        mainWorker.scheduleWithFixedDelay(() -> {
+            try {
+                processNewPeers();
+            } catch (Throwable t) {
+                logger.error("Error", t);
             }
         }, 0, 1, TimeUnit.SECONDS);
 
         if (config.listenPort() > 0) {
-            new Thread(new Runnable() {
-                        public void run() {
-                            peerServer.start(config.listenPort());
-                        }
-                    },
+            new Thread(() -> peerServer.start(config.listenPort()),
             "PeerServerThread").start();
         }
 
         // Resending new blocks to network in loop
-        this.blockDistributeThread = new Thread(new Runnable() {
-            @Override
-            public void run() {
-                newBlocksDistributeLoop();
-            }
-        }, "NewSyncThreadBlocks");
+        this.blockDistributeThread = new Thread(this::newBlocksDistributeLoop, "NewSyncThreadBlocks");
         this.blockDistributeThread.start();
 
         // Resending pending txs to newly connected peers
-        this.txDistributeThread = new Thread(new Runnable() {
-            @Override
-            public void run() {
-                newTxDistributeLoop();
-            }
-        }, "NewPeersThread");
+        this.txDistributeThread = new Thread(this::newTxDistributeLoop, "NewPeersThread");
         this.txDistributeThread.start();
     }
 

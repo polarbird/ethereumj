@@ -1,6 +1,25 @@
+/*
+ * Copyright (c) [2016] [ <ether.camp> ]
+ * This file is part of the ethereumJ library.
+ *
+ * The ethereumJ library is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * The ethereumJ library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with the ethereumJ library. If not, see <http://www.gnu.org/licenses/>.
+ */
 package org.ethereum.datasource;
 
 import org.ethereum.datasource.inmem.HashMapDB;
+import org.ethereum.datasource.prune.PruneEntry;
+import org.ethereum.datasource.prune.PruneWindow;
 import org.ethereum.util.RLP;
 import org.ethereum.util.RLPElement;
 import org.ethereum.util.RLPList;
@@ -8,6 +27,8 @@ import org.spongycastle.util.encoders.Hex;
 
 import java.util.ArrayList;
 import java.util.List;
+
+import static org.ethereum.datasource.prune.PruneWindow.DetachStatus.PRUNED;
 
 /**
  * The JournalSource records all the changes which were made before each commitUpdate
@@ -74,11 +95,10 @@ public class JournalSource<V> extends AbstractChainedSource<byte[], V, byte[], V
     private Update currentUpdate = new Update();
 
     Source<byte[], Update> journal = new HashMapDB<>();
+    PruneWindow pruning = new PruneWindow();
 
     /**
      * Constructs instance with the underlying backing Source
-     * @param src the Source must implement counting semantics
-     *            see e.g. {@link CountingBytesSource} or {@link WriteCache.CacheType#COUNTING}
      */
     public JournalSource(Source<byte[], V> src) {
         super(src);
@@ -90,6 +110,10 @@ public class JournalSource<V> extends AbstractChainedSource<byte[], V, byte[], V
                     public byte[] serialize(Update object) { return object.serialize(); }
                     public Update deserialize(byte[] stream) { return stream == null ? null : new Update(stream); }
                 });
+    }
+
+    public void setPruneSource(Source<byte[], PruneEntry> pruneSource) {
+        pruning.setSource(pruneSource);
     }
 
     /**
@@ -105,6 +129,7 @@ public class JournalSource<V> extends AbstractChainedSource<byte[], V, byte[], V
         }
 
         currentUpdate.insertedKeys.add(key);
+        pruning.inserted(key);
         getSource().put(key, val);
     }
 
@@ -116,6 +141,7 @@ public class JournalSource<V> extends AbstractChainedSource<byte[], V, byte[], V
     @Override
     public synchronized void delete(byte[] key) {
         currentUpdate.deletedKeys.add(key);
+        pruning.deleted(key);
     }
 
     @Override
@@ -145,27 +171,40 @@ public class JournalSource<V> extends AbstractChainedSource<byte[], V, byte[], V
     }
 
     /**
-     * Persists all deletes to the backing store made under this hash key
+     * Given update hash prunes touched nodes
      */
     public synchronized void persistUpdate(byte[] updateHash) {
         Update update = journal.get(updateHash);
         if (update == null) throw new RuntimeException("No update found: " + Hex.toHexString(updateHash));
-        for (byte[] key : update.deletedKeys) {
-            getSource().delete(key);
-        }
+
+        update.insertedKeys.forEach(this::firePruning);
+        update.deletedKeys.forEach(this::firePruning);
+
         journal.delete(updateHash);
     }
 
     /**
-     * Deletes all inserts to the backing store made under this hash key
+     * Reverts all changes made under this update hash and prunes touched nodes
      */
     public synchronized void revertUpdate(byte[] updateHash) {
         Update update = journal.get(updateHash);
         if (update == null) throw new RuntimeException("No update found: " + Hex.toHexString(updateHash));
-        for (byte[] key : update.insertedKeys) {
-            getSource().delete(key);
-        }
+
+        update.insertedKeys.forEach(pruning::revertInsert);
+        update.deletedKeys.forEach(pruning::revertDelete);
+
+        update.insertedKeys.forEach(this::firePruning);
+        update.deletedKeys.forEach(this::firePruning);
+
         journal.delete(updateHash);
+    }
+
+    /**
+     * Tries to detach given node from the window and delete it is tend to be pruned
+     */
+    private void firePruning(byte[] key) {
+        if (pruning.detach(key) == PRUNED)
+            getSource().delete(key);
     }
 
     @Override

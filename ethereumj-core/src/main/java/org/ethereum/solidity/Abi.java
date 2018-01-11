@@ -1,3 +1,20 @@
+/*
+ * Copyright (c) [2016] [ <ether.camp> ]
+ * This file is part of the ethereumJ library.
+ *
+ * The ethereumJ library is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * The ethereumJ library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with the ethereumJ library. If not, see <http://www.gnu.org/licenses/>.
+ */
 package org.ethereum.solidity;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -20,9 +37,9 @@ import static org.apache.commons.collections4.ListUtils.select;
 import static org.apache.commons.lang3.ArrayUtils.subarray;
 import static org.apache.commons.lang3.StringUtils.join;
 import static org.apache.commons.lang3.StringUtils.stripEnd;
+import static org.ethereum.crypto.HashUtil.sha3;
 import static org.ethereum.solidity.SolidityType.IntType.decodeInt;
 import static org.ethereum.solidity.SolidityType.IntType.encodeInt;
-import static org.ethereum.crypto.HashUtil.sha3;
 
 public class Abi extends ArrayList<Abi.Entry> {
     private final static ObjectMapper DEFAULT_MAPPER = new ObjectMapper()
@@ -46,12 +63,7 @@ public class Abi extends ArrayList<Abi.Entry> {
     }
 
     private <T extends Abi.Entry> T find(Class<T> resultClass, final Abi.Entry.Type type, final Predicate<T> searchPredicate) {
-        return (T) CollectionUtils.find(this, new Predicate<Abi.Entry>() {
-            @Override
-            public boolean evaluate(Abi.Entry entry) {
-                return entry.type == type && searchPredicate.evaluate((T) entry);
-            }
-        });
+        return (T) CollectionUtils.find(this, entry -> entry.type == type && searchPredicate.evaluate((T) entry));
     }
 
     public Function findFunction(Predicate<Function> searchPredicate) {
@@ -63,12 +75,7 @@ public class Abi extends ArrayList<Abi.Entry> {
     }
 
     public Abi.Constructor findConstructor() {
-        return find(Constructor.class, Entry.Type.constructor, new Predicate<Constructor>() {
-            @Override
-            public boolean evaluate(Constructor object) {
-                return true;
-            }
-        });
+        return find(Constructor.class, Entry.Type.constructor, object -> true);
     }
 
     @Override
@@ -117,20 +124,21 @@ public class Abi extends ArrayList<Abi.Entry> {
 
         public final Boolean anonymous;
         public final Boolean constant;
-        public final Boolean payable;
         public final String name;
         public final List<Param> inputs;
         public final List<Param> outputs;
         public final Type type;
+        public final Boolean payable;
 
-        public Entry(Boolean anonymous, Boolean constant, Boolean payable, String name, List<Param> inputs, List<Param> outputs, Type type) {
+
+        public Entry(Boolean anonymous, Boolean constant, String name, List<Param> inputs, List<Param> outputs, Type type, Boolean payable) {
             this.anonymous = anonymous;
             this.constant = constant;
-            this.payable = payable;
             this.name = name;
             this.inputs = inputs;
             this.outputs = outputs;
             this.type = type;
+            this.payable = payable;
         }
 
         public String formatSignature() {
@@ -153,18 +161,18 @@ public class Abi extends ArrayList<Abi.Entry> {
         @JsonCreator
         public static Entry create(@JsonProperty("anonymous") boolean anonymous,
                                    @JsonProperty("constant") boolean constant,
-                                   @JsonProperty("payable") boolean payable,
                                    @JsonProperty("name") String name,
                                    @JsonProperty("inputs") List<Param> inputs,
                                    @JsonProperty("outputs") List<Param> outputs,
-                                   @JsonProperty("type") Type type) {
+                                   @JsonProperty("type") Type type,
+                                   @JsonProperty(value = "payable", required = false, defaultValue = "false") Boolean payable) {
             Entry result = null;
             switch (type) {
                 case constructor:
                     result = new Constructor(inputs, outputs);
                     break;
                 case function:
-                    result = new Function(constant, payable, name, inputs, outputs);
+                    result = new Function(constant, name, inputs, outputs, payable);
                     break;
                 case event:
                     result = new Event(anonymous, name, inputs, outputs);
@@ -178,7 +186,7 @@ public class Abi extends ArrayList<Abi.Entry> {
     public static class Constructor extends Entry {
 
         public Constructor(List<Param> inputs, List<Param> outputs) {
-            super(null, null, null, "", inputs, outputs, Type.constructor);
+            super(null, null, "", inputs, outputs, Type.constructor, false);
         }
 
         public List<?> decode(byte[] encoded) {
@@ -194,8 +202,8 @@ public class Abi extends ArrayList<Abi.Entry> {
 
         private static final int ENCODED_SIGN_LENGTH = 4;
 
-        public Function(boolean constant, boolean payable, String name, List<Param> inputs, List<Param> outputs) {
-            super(null, constant, payable, name, inputs, outputs, Type.function);
+        public Function(boolean constant, String name, List<Param> inputs, List<Param> outputs, Boolean payable) {
+            super(null, constant, name, inputs, outputs, Type.function, payable);
         }
 
         public byte[] encode(Object... args) {
@@ -272,7 +280,7 @@ public class Abi extends ArrayList<Abi.Entry> {
     public static class Event extends Entry {
 
         public Event(boolean anonymous, String name, List<Param> inputs, List<Param> outputs) {
-            super(anonymous, null, null, name, inputs, outputs, Type.event);
+            super(anonymous, null, name, inputs, outputs, Type.event, false);
         }
 
         public List<?> decode(byte[] data, byte[][] topics) {
@@ -290,12 +298,7 @@ public class Abi extends ArrayList<Abi.Entry> {
         }
 
         private List<Param> filteredInputs(final boolean indexed) {
-            return select(inputs, new Predicate<Param>() {
-                @Override
-                public boolean evaluate(Param param) {
-                    return param.indexed == indexed;
-                }
-            });
+            return select(inputs, param -> param.indexed == indexed);
         }
 
         @Override

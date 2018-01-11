@@ -1,3 +1,20 @@
+/*
+ * Copyright (c) [2016] [ <ether.camp> ]
+ * This file is part of the ethereumJ library.
+ *
+ * The ethereumJ library is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * The ethereumJ library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with the ethereumJ library. If not, see <http://www.gnu.org/licenses/>.
+ */
 package org.ethereum.vm.program;
 
 import org.ethereum.util.ByteArraySet;
@@ -23,6 +40,7 @@ public class ProgramResult {
     private long gasUsed;
     private byte[] hReturn = EMPTY_BYTE_ARRAY;
     private RuntimeException exception;
+    private boolean revert;
 
     private Set<DataWord> deleteAccounts;
     private ByteArraySet touchedAccounts = new ByteArraySet();
@@ -39,6 +57,14 @@ public class ProgramResult {
 
     public void spendGas(long gas) {
         gasUsed += gas;
+    }
+
+    public void setRevert() {
+        this.revert = true;
+    }
+
+    public boolean isRevert() {
+        return revert;
     }
 
     public void refundGas(long gas) {
@@ -163,7 +189,7 @@ public class ProgramResult {
 
     public void merge(ProgramResult another) {
         addInternalTransactions(another.getInternalTransactions());
-        if (another.getException() == null) {
+        if (another.getException() == null && !another.isRevert()) {
             addDeleteAccounts(another.getDeleteAccounts());
             addLogInfos(another.getLogInfoList());
             addFutureRefund(another.getFutureRefund());
@@ -171,7 +197,7 @@ public class ProgramResult {
         }
     }
     
-    public static ProgramResult empty() {
+    public static ProgramResult createEmpty() {
         ProgramResult result = new ProgramResult();
         result.setHReturn(EMPTY_BYTE_ARRAY);
         return result;

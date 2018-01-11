@@ -1,3 +1,20 @@
+/*
+ * Copyright (c) [2016] [ <ether.camp> ]
+ * This file is part of the ethereumJ library.
+ *
+ * The ethereumJ library is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * The ethereumJ library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with the ethereumJ library. If not, see <http://www.gnu.org/licenses/>.
+ */
 package org.ethereum.net;
 
 import io.netty.bootstrap.Bootstrap;
@@ -13,7 +30,6 @@ import org.ethereum.net.rlpx.FindNodeMessage;
 import org.ethereum.net.rlpx.Message;
 import org.ethereum.net.rlpx.discover.DiscoveryEvent;
 import org.ethereum.net.rlpx.discover.PacketDecoder;
-import org.ethereum.util.Functional;
 import org.junit.Ignore;
 import org.junit.Test;
 import org.spongycastle.util.encoders.Hex;
@@ -22,6 +38,7 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 
 import static org.ethereum.util.ByteUtil.longToBytesNoLeadZeroes;
 
@@ -49,7 +66,7 @@ public class UdpTest {
     private final SimpleNodeManager nodeManager = new SimpleNodeManager();
 
     private class SimpleMessageHandler extends SimpleChannelInboundHandler<DiscoveryEvent>
-            implements Functional.Consumer<DiscoveryEvent>  {
+            implements Consumer<DiscoveryEvent> {
 
         Channel channel;
 

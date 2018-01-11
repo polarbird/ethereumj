@@ -1,3 +1,20 @@
+/*
+ * Copyright (c) [2016] [ <ether.camp> ]
+ * This file is part of the ethereumJ library.
+ *
+ * The ethereumJ library is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * The ethereumJ library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with the ethereumJ library. If not, see <http://www.gnu.org/licenses/>.
+ */
 package org.ethereum.vm;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -93,9 +110,8 @@ public class DataWord implements Comparable<DataWord> {
     public int intValue() {
         int intVal = 0;
 
-        for (int i = 0; i < data.length; i++)
-        {
-            intVal = (intVal << 8) + (data[i] & 0xff);
+        for (byte aData : data) {
+            intVal = (intVal << 8) + (aData & 0xff);
         }
 
         return intVal;
@@ -123,9 +139,8 @@ public class DataWord implements Comparable<DataWord> {
     public long longValue() {
 
         long longVal = 0;
-        for (int i = 0; i < data.length; i++)
-        {
-            longVal = (longVal << 8) + (data[i] & 0xff);
+        for (byte aData : data) {
+            longVal = (longVal << 8) + (aData & 0xff);
         }
 
         return longVal;

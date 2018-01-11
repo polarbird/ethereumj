@@ -1,3 +1,20 @@
+/*
+ * Copyright (c) [2016] [ <ether.camp> ]
+ * This file is part of the ethereumJ library.
+ *
+ * The ethereumJ library is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * The ethereumJ library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with the ethereumJ library. If not, see <http://www.gnu.org/licenses/>.
+ */
 package org.ethereum.datasource;
 
 /**
@@ -52,6 +69,15 @@ public class SourceCodec<Key, Value, SourceKey, SourceValue>
     public static class ValueOnly<Key, Value, SourceValue> extends SourceCodec<Key, Value, Key, SourceValue> {
         public ValueOnly(Source<Key, SourceValue> src, Serializer<Value, SourceValue> valSerializer) {
             super(src, new Serializers.Identity<Key>(), valSerializer);
+        }
+    }
+
+    /**
+     * Shortcut class when only key conversion is required
+     */
+    public static class KeyOnly<Key, Value, SourceKey> extends SourceCodec<Key, Value, SourceKey, Value> {
+        public KeyOnly(Source<SourceKey, Value> src, Serializer<Key, SourceKey> keySerializer) {
+            super(src, keySerializer, new Serializers.Identity<Value>());
         }
     }
 

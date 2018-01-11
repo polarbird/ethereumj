@@ -1,3 +1,20 @@
+/*
+ * Copyright (c) [2016] [ <ether.camp> ]
+ * This file is part of the ethereumJ library.
+ *
+ * The ethereumJ library is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * The ethereumJ library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with the ethereumJ library. If not, see <http://www.gnu.org/licenses/>.
+ */
 package org.ethereum.solidity;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -44,6 +61,7 @@ public abstract class SolidityType {
         if ("address".equals(typeName)) return new AddressType();
         if ("string".equals(typeName)) return new StringType();
         if ("bytes".equals(typeName)) return new BytesType();
+        if ("function".equals(typeName)) return new FunctionType();
         if (typeName.startsWith("bytes")) return new Bytes32Type(typeName);
         throw new RuntimeException("Unknown type: " + typeName);
     }
@@ -235,8 +253,14 @@ public abstract class SolidityType {
 
         @Override
         public byte[] encode(Object value) {
-            if (!(value instanceof byte[])) throw new RuntimeException("byte[] value expected for type 'bytes'");
-            byte[] bb = (byte[]) value;
+            byte[] bb;
+            if (value instanceof byte[]) {
+                bb = (byte[]) value;
+            } else if (value instanceof String) {
+                bb = ((String) value).getBytes();
+            } else {
+                throw new RuntimeException("byte[] or String value is expected for type 'bytes'");
+            }
             byte[] ret = new byte[((bb.length - 1) / 32 + 1) * 32]; // padding 32 bytes
             System.arraycopy(bb, 0, ret, 0, bb.length);
 
@@ -404,4 +428,16 @@ public abstract class SolidityType {
         }
     }
 
+    public static class FunctionType extends Bytes32Type {
+        public FunctionType() {
+            super("function");
+        }
+
+        @Override
+        public byte[] encode(Object value) {
+            if (!(value instanceof byte[])) throw new RuntimeException("Expected byte[] value for FunctionType");
+            if (((byte[]) value).length != 24) throw new RuntimeException("Expected byte[24] for FunctionType");
+            return super.encode(ByteUtil.merge((byte[]) value, new byte[8]));
+        }
+    }
 }

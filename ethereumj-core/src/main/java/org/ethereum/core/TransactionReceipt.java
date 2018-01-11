@@ -1,3 +1,20 @@
+/*
+ * Copyright (c) [2016] [ <ether.camp> ]
+ * This file is part of the ethereumJ library.
+ *
+ * The ethereumJ library is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * The ethereumJ library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with the ethereumJ library. If not, see <http://www.gnu.org/licenses/>.
+ */
 package org.ethereum.core;
 
 import org.ethereum.util.*;
@@ -187,6 +204,19 @@ public class TransactionReceipt {
         rlpEncoded = null;
     }
 
+    public void setTxStatus(boolean success) {
+        this.postTxState = success ? new byte[]{1} : new byte[0];
+        rlpEncoded = null;
+    }
+
+    public boolean hasTxStatus() {
+        return postTxState != null && postTxState.length <= 1;
+    }
+
+    public boolean isTxStatusOK() {
+        return postTxState != null && postTxState.length == 1 && postTxState[0] == 1;
+    }
+
     public void setCumulativeGas(long cumulativeGas) {
         this.cumulativeGas = BigIntegers.asUnsignedByteArray(BigInteger.valueOf(cumulativeGas));
         rlpEncoded = null;
@@ -241,7 +271,8 @@ public class TransactionReceipt {
         // todo: fix that
 
         return "TransactionReceipt[" +
-                "\n  , postTxState=" + Hex.toHexString(postTxState) +
+                "\n  , " + (hasTxStatus() ? ("txStatus=" + (isTxStatusOK() ? "OK" : "FAILED"))
+                                        : ("postTxState=" + Hex.toHexString(postTxState))) +
                 "\n  , cumulativeGas=" + Hex.toHexString(cumulativeGas) +
                 "\n  , gasUsed=" + Hex.toHexString(gasUsed) +
                 "\n  , error=" + error +

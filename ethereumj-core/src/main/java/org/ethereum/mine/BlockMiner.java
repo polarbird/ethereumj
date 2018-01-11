@@ -1,3 +1,20 @@
+/*
+ * Copyright (c) [2016] [ <ether.camp> ]
+ * This file is part of the ethereumJ library.
+ *
+ * The ethereumJ library is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * The ethereumJ library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with the ethereumJ library. If not, see <http://www.gnu.org/licenses/>.
+ */
 package org.ethereum.mine;
 
 import com.google.common.util.concurrent.ListenableFuture;
@@ -252,18 +269,15 @@ public class BlockMiner {
             }
 
             for (final ListenableFuture<MiningResult> task : currentMiningTasks) {
-                task.addListener(new Runnable() {
-                    @Override
-                    public void run() {
-                        try {
-                            // wow, block mined!
-                            final Block minedBlock = task.get().block;
-                            blockMined(minedBlock);
-                        } catch (InterruptedException | CancellationException e) {
-                            // OK, we've been cancelled, just exit
-                        } catch (Exception e) {
-                            logger.warn("Exception during mining: ", e);
-                        }
+                task.addListener(() -> {
+                    try {
+                        // wow, block mined!
+                        final Block minedBlock = task.get().block;
+                        blockMined(minedBlock);
+                    } catch (InterruptedException | CancellationException e) {
+                        // OK, we've been cancelled, just exit
+                    } catch (Exception e) {
+                        logger.warn("Exception during mining: ", e);
                     }
                 }, MoreExecutors.sameThreadExecutor());
             }

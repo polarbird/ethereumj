@@ -1,3 +1,20 @@
+/*
+ * Copyright (c) [2016] [ <ether.camp> ]
+ * This file is part of the ethereumJ library.
+ *
+ * The ethereumJ library is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * The ethereumJ library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with the ethereumJ library. If not, see <http://www.gnu.org/licenses/>.
+ */
 package org.ethereum.vm.program.invoke;
 
 import org.ethereum.core.Block;
@@ -124,7 +141,8 @@ public class ProgramInvokeFactoryImpl implements ProgramInvokeFactory {
     public ProgramInvoke createProgramInvoke(Program program, DataWord toAddress, DataWord callerAddress,
                                              DataWord inValue, DataWord inGas,
                                              BigInteger balanceInt, byte[] dataIn,
-                                             Repository repository, BlockStore blockStore, boolean byTestingSuite) {
+                                             Repository repository, BlockStore blockStore,
+                                             boolean isStaticCall, boolean byTestingSuite) {
 
         DataWord address = toAddress;
         DataWord origin = program.getOriginAddress();
@@ -177,6 +195,6 @@ public class ProgramInvokeFactoryImpl implements ProgramInvokeFactory {
 
         return new ProgramInvokeImpl(address, origin, caller, balance, gasPrice, gas, callValue,
                 data, lastHash, coinbase, timestamp, number, difficulty, gasLimit,
-                repository, program.getCallDeep() + 1, blockStore, byTestingSuite);
+                repository, program.getCallDeep() + 1, blockStore, isStaticCall, byTestingSuite);
     }
 }

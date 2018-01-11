@@ -1,3 +1,20 @@
+/*
+ * Copyright (c) [2016] [ <ether.camp> ]
+ * This file is part of the ethereumJ library.
+ *
+ * The ethereumJ library is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * The ethereumJ library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with the ethereumJ library. If not, see <http://www.gnu.org/licenses/>.
+ */
 package org.ethereum.vm.program.invoke;
 
 import org.ethereum.core.Repository;
@@ -37,12 +54,14 @@ public class ProgramInvokeImpl implements ProgramInvoke {
     private boolean byTransaction = true;
     private boolean byTestingSuite = false;
     private int callDeep = 0;
+    private boolean isStaticCall = false;
 
     public ProgramInvokeImpl(DataWord address, DataWord origin, DataWord caller, DataWord balance,
                              DataWord gasPrice, DataWord gas, DataWord callValue, byte[] msgData,
                              DataWord lastHash, DataWord coinbase, DataWord timestamp, DataWord number, DataWord
                                      difficulty,
-                             DataWord gaslimit, Repository repository, int callDeep, BlockStore blockStore, boolean byTestingSuite) {
+                             DataWord gaslimit, Repository repository, int callDeep, BlockStore blockStore,
+                             boolean isStaticCall, boolean byTestingSuite) {
 
         // Transaction env
         this.address = address;
@@ -67,6 +86,7 @@ public class ProgramInvokeImpl implements ProgramInvoke {
         this.byTransaction = false;
         this.callDeep = callDeep;
         this.blockStore = blockStore;
+        this.isStaticCall = isStaticCall;
         this.byTestingSuite = byTestingSuite;
     }
 
@@ -249,6 +269,11 @@ public class ProgramInvokeImpl implements ProgramInvoke {
     @Override
     public boolean byTransaction() {
         return byTransaction;
+    }
+
+    @Override
+    public boolean isStaticCall() {
+        return isStaticCall;
     }
 
     @Override

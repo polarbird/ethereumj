@@ -1,3 +1,20 @@
+/*
+ * Copyright (c) [2016] [ <ether.camp> ]
+ * This file is part of the ethereumJ library.
+ *
+ * The ethereumJ library is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * The ethereumJ library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with the ethereumJ library. If not, see <http://www.gnu.org/licenses/>.
+ */
 package org.ethereum.jsontestsuite.suite;
 
 import org.ethereum.config.CommonConfig;
@@ -90,7 +107,7 @@ public class TestRunner {
 
         blockchain.setBestBlock(genesis);
         blockchain.setTotalDifficulty(genesis.getCumulativeDifficulty());
-        blockchain.setParentHeaderValidator(new DependentBlockHeaderRuleAdapter());
+        blockchain.setParentHeaderValidator(new CommonConfig().parentHeaderValidator());
         blockchain.setProgramInvokeFactory(programInvokeFactory);
 
         blockchain.setPendingState(pendingState);
@@ -140,7 +157,8 @@ public class TestRunner {
         List<String> results = new ArrayList<>();
         String currRoot = Hex.toHexString(repository.getRoot());
 
-        byte[] bestHash = Hex.decode(testCase.getLastblockhash());
+        byte[] bestHash = Hex.decode(testCase.getLastblockhash().startsWith("0x") ?
+                testCase.getLastblockhash().substring(2) : testCase.getLastblockhash());
         String finalRoot = Hex.toHexString(blockStore.getBlockByHash(bestHash).getStateRoot());
 
         if (!finalRoot.equals(currRoot)){
@@ -335,70 +353,8 @@ public class TestRunner {
                     /* asset logs */
                         List<LogInfo> logResult = program.getResult().getLogInfoList();
 
-                        Iterator<LogInfo> postLogs = logs.getIterator();
-                        int i = 0;
-                        while (postLogs.hasNext()) {
-
-                            LogInfo expectedLogInfo = postLogs.next();
-
-                            LogInfo foundLogInfo = null;
-                            if (logResult.size() > i)
-                                foundLogInfo = logResult.get(i);
-
-                            if (foundLogInfo == null) {
-                                String output =
-                                        String.format("Expected log [ %s ]", expectedLogInfo.toString());
-                                logger.info(output);
-                                results.add(output);
-                            } else {
-                                if (!Arrays.equals(expectedLogInfo.getAddress(), foundLogInfo.getAddress())) {
-                                    String output =
-                                            String.format("Expected address [ %s ], found [ %s ]", Hex.toHexString(expectedLogInfo.getAddress()), Hex.toHexString(foundLogInfo.getAddress()));
-                                    logger.info(output);
-                                    results.add(output);
-                                }
-
-                                if (!Arrays.equals(expectedLogInfo.getData(), foundLogInfo.getData())) {
-                                    String output =
-                                            String.format("Expected data [ %s ], found [ %s ]", Hex.toHexString(expectedLogInfo.getData()), Hex.toHexString(foundLogInfo.getData()));
-                                    logger.info(output);
-                                    results.add(output);
-                                }
-
-                                if (!expectedLogInfo.getBloom().equals(foundLogInfo.getBloom())) {
-                                    String output =
-                                            String.format("Expected bloom [ %s ], found [ %s ]",
-                                                    Hex.toHexString(expectedLogInfo.getBloom().getData()),
-                                                    Hex.toHexString(foundLogInfo.getBloom().getData()));
-                                    logger.info(output);
-                                    results.add(output);
-                                }
-
-                                if (expectedLogInfo.getTopics().size() != foundLogInfo.getTopics().size()) {
-                                    String output =
-                                            String.format("Expected number of topics [ %d ], found [ %d ]",
-                                                    expectedLogInfo.getTopics().size(), foundLogInfo.getTopics().size());
-                                    logger.info(output);
-                                    results.add(output);
-                                } else {
-                                    int j = 0;
-                                    for (DataWord topic : expectedLogInfo.getTopics()) {
-                                        byte[] foundTopic = foundLogInfo.getTopics().get(j).getData();
-
-                                        if (!Arrays.equals(topic.getData(), foundTopic)) {
-                                            String output =
-                                                    String.format("Expected topic [ %s ], found [ %s ]", Hex.toHexString(topic.getData()), Hex.toHexString(foundTopic));
-                                            logger.info(output);
-                                            results.add(output);
-                                        }
-
-                                        ++j;
-                                    }
-                                }
-                            }
-
-                            ++i;
-                        }
+                        List<String> logResults = logs.compareToReal(logResult);
+                        results.addAll(logResults);
                     }
                 }
 

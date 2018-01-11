@@ -1,3 +1,20 @@
+/*
+ * Copyright (c) [2016] [ <ether.camp> ]
+ * This file is part of the ethereumJ library.
+ *
+ * The ethereumJ library is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * The ethereumJ library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with the ethereumJ library. If not, see <http://www.gnu.org/licenses/>.
+ */
 package org.ethereum.crypto;
 
 import com.google.common.collect.Lists;
@@ -244,12 +261,7 @@ public class ECKeyTest {
         final ECKey key = new ECKey();
         for (byte i = 0; i < ITERATIONS; i++) {
             final byte[] hash = HashUtil.sha3(new byte[]{i});
-            sigFutures.add(executor.submit(new Callable<ECDSASignature>() {
-                @Override
-                public ECKey.ECDSASignature call() throws Exception {
-                    return key.doSign(hash);
-                }
-            }));
+            sigFutures.add(executor.submit(() -> key.doSign(hash)));
         }
         List<ECKey.ECDSASignature> sigs = Futures.allAsList(sigFutures).get();
         for (ECKey.ECDSASignature signature : sigs) {
@@ -285,7 +297,8 @@ public class ECKeyTest {
         if (provider != null) {
             testProviderRoundTrip(provider);
         } else {
-            System.out.println("Skip test as provider doesn't exist. Must be OpenJDK 1.7 which ships without 'SunEC'");
+            System.out.println("Skip test as provider doesn't exist. " +
+                    "Must be OpenJDK which could be shipped without 'SunEC'");
         }
     }
 

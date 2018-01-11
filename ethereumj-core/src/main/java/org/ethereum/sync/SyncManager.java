@@ -1,3 +1,20 @@
+/*
+ * Copyright (c) [2016] [ <ether.camp> ]
+ * This file is part of the ethereumJ library.
+ *
+ * The ethereumJ library is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * The ethereumJ library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with the ethereumJ library. If not, see <http://www.gnu.org/licenses/>.
+ */
 package org.ethereum.sync;
 
 import org.ethereum.config.SystemProperties;
@@ -9,7 +26,6 @@ import org.ethereum.listener.EthereumListener;
 import org.ethereum.net.server.Channel;
 import org.ethereum.net.server.ChannelManager;
 import org.ethereum.util.ExecutorPipeline;
-import org.ethereum.util.Functional;
 import org.ethereum.validator.BlockHeaderValidator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -25,10 +41,12 @@ import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Consumer;
 
 import static java.lang.Math.max;
 import static java.util.Collections.singletonList;
 import static org.ethereum.core.ImportResult.*;
+import static org.ethereum.util.Utils.longToTimePeriod;
 
 /**
  * @author Mikhail Kalinin
@@ -45,20 +63,14 @@ public class SyncManager extends BlockDownloader {
     // Transaction.getSender() is quite heavy operation so we are prefetching this value on several threads
     // to unload the main block importing cycle
     private ExecutorPipeline<BlockWrapper,BlockWrapper> exec1 = new ExecutorPipeline<>
-            (4, 1000, true, new Functional.Function<BlockWrapper,BlockWrapper>() {
-                public BlockWrapper apply(BlockWrapper blockWrapper) {
-                    for (Transaction tx : blockWrapper.getBlock().getTransactionsList()) {
-                        tx.getSender();
-                    }
-                    return blockWrapper;
+            (4, 1000, true, blockWrapper -> {
+                for (Transaction tx : blockWrapper.getBlock().getTransactionsList()) {
+                    tx.getSender();
                 }
-            }, new Functional.Consumer<Throwable>() {
-                public void accept(Throwable throwable) {
-                    logger.error("Unexpected exception: ", throwable);
-                }
-            });
+                return blockWrapper;
+            }, throwable -> logger.error("Unexpected exception: ", throwable));
 
-    private ExecutorPipeline<BlockWrapper, Void> exec2 = exec1.add(1, 1, new Functional.Consumer<BlockWrapper>() {
+    private ExecutorPipeline<BlockWrapper, Void> exec2 = exec1.add(1, 1, new Consumer<BlockWrapper>() {
         @Override
         public void accept(BlockWrapper blockWrapper) {
             blockQueueByteSize.addAndGet(estimateBlockSize(blockWrapper));
@@ -93,6 +105,8 @@ public class SyncManager extends BlockDownloader {
     private long blockBytesLimit = 32 * 1024 * 1024;
     private long lastKnownBlockNumber = 0;
     private boolean syncDone = false;
+    private AtomicLong importIdleTime = new AtomicLong();
+    private long importStart;
     private EthereumListener.SyncState syncDoneType = EthereumListener.SyncState.COMPLETE;
     private ScheduledExecutorService logExecutor = Executors.newSingleThreadScheduledExecutor();
 
@@ -112,9 +126,13 @@ public class SyncManager extends BlockDownloader {
         if (this.channelManager == null) {  // First init
             this.pool = pool;
             this.channelManager = channelManager;
-            logExecutor.scheduleAtFixedRate(new Runnable() {
-                public void run() {
-                    logger.info("Sync state: " + getSyncStatus());
+            logExecutor.scheduleAtFixedRate(() -> {
+                try {
+                    logger.info("Sync state: " + getSyncStatus() +
+                            (isSyncDone() || importStart == 0 ? "" : "; Import idle time " +
+                            longToTimePeriod(importIdleTime.get()) + " of total " + longToTimePeriod(System.currentTimeMillis() - importStart)));
+                } catch (Exception e) {
+                    logger.error("Unexpected", e);
                 }
             }, 10, 10, TimeUnit.SECONDS);
         }
@@ -144,13 +162,7 @@ public class SyncManager extends BlockDownloader {
         syncQueue = new SyncQueueImpl(blockchain);
         super.init(syncQueue, pool);
 
-        Runnable queueProducer = new Runnable(){
-
-            @Override
-            public void run() {
-                produceQueue();
-            }
-        };
+        Runnable queueProducer = this::produceQueue;
 
         syncQueueThread = new Thread (queueProducer, "SyncQueueThread");
         syncQueueThread.start();
@@ -222,8 +234,14 @@ public class SyncManager extends BlockDownloader {
             BlockWrapper wrapper = null;
             try {
 
+                long stale = !isSyncDone() && importStart > 0 && blockQueue.isEmpty() ? System.nanoTime() : 0;
                 wrapper = blockQueue.take();
                 blockQueueByteSize.addAndGet(-estimateBlockSize(wrapper));
+
+                if (stale > 0) {
+                    importIdleTime.addAndGet((System.nanoTime() - stale) / 1_000_000);
+                }
+                if (importStart == 0) importStart = System.currentTimeMillis();
 
                 logger.debug("BlockQueue size: {}, headers queue size: {}", blockQueue.size(), syncQueue.getHeadersCount());
 

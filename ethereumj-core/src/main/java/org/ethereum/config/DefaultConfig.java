@@ -1,3 +1,20 @@
+/*
+ * Copyright (c) [2016] [ <ether.camp> ]
+ * This file is part of the ethereumJ library.
+ *
+ * The ethereumJ library is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * The ethereumJ library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with the ethereumJ library. If not, see <http://www.gnu.org/licenses/>.
+ */
 package org.ethereum.config;
 
 import org.ethereum.datasource.*;
@@ -33,19 +50,16 @@ public class DefaultConfig {
     SystemProperties config;
 
     public DefaultConfig() {
-        Thread.setDefaultUncaughtExceptionHandler(new Thread.UncaughtExceptionHandler() {
-            @Override
-            public void uncaughtException(Thread t, Throwable e) {
-                logger.error("Uncaught exception", e);
-            }
-        });
+        Thread.setDefaultUncaughtExceptionHandler((t, e) -> logger.error("Uncaught exception", e));
     }
 
     @Bean
     public BlockStore blockStore(){
         commonConfig.fastSyncCleanUp();
         IndexedBlockStore indexedBlockStore = new IndexedBlockStore();
-        indexedBlockStore.init(commonConfig.cachedDbSource("index"), commonConfig.cachedDbSource("block"));
+        Source<byte[], byte[]> block = commonConfig.cachedDbSource("block");
+        Source<byte[], byte[]> index = commonConfig.cachedDbSource("index");
+        indexedBlockStore.init(index, block);
 
         return indexedBlockStore;
     }

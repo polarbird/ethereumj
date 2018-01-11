@@ -1,3 +1,20 @@
+/*
+ * Copyright (c) [2016] [ <ether.camp> ]
+ * This file is part of the ethereumJ library.
+ *
+ * The ethereumJ library is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * The ethereumJ library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with the ethereumJ library. If not, see <http://www.gnu.org/licenses/>.
+ */
 package org.ethereum.core;
 
 import org.slf4j.Logger;
@@ -25,13 +42,9 @@ public class EventDispatchThread {
     private static final int[] queueSizeWarnLevels = new int[]{0, 10_000, 50_000, 100_000, 250_000, 500_000, 1_000_000, 10_000_000};
 
     private final BlockingQueue<Runnable> executorQueue = new LinkedBlockingQueue<Runnable>();
-    private final ExecutorService executor = new ThreadPoolExecutor(1, 1,
-            0L, TimeUnit.MILLISECONDS, executorQueue, new ThreadFactory() {
-        @Override
-        public Thread newThread(Runnable r) {
-            return new Thread(r, "EDT");
-        }
-    });
+    private final ExecutorService executor = new ThreadPoolExecutor(1, 1, 0L,
+            TimeUnit.MILLISECONDS, executorQueue, r -> new Thread(r, "EDT")
+    );
 
     private long taskStart;
     private Runnable lastTask;
@@ -58,23 +71,20 @@ public class EventDispatchThread {
         if (executor.isShutdown()) return;
         if (counter++ % 1000 == 0) logStatus();
 
-        executor.submit(new Runnable() {
-            @Override
-            public void run() {
-                try {
-                    lastTask = r;
-                    taskStart = System.nanoTime();
-                    r.run();
-                    long t = (System.nanoTime() - taskStart) / 1_000_000;
-                    taskStart = 0;
-                    if (t > 1000) {
-                        logger.warn("EDT task executed in more than 1 sec: " + t + "ms, " +
-                        "Executor queue size: " + executorQueue.size());
+        executor.submit(() -> {
+            try {
+                lastTask = r;
+                taskStart = System.nanoTime();
+                r.run();
+                long t = (System.nanoTime() - taskStart) / 1_000_000;
+                taskStart = 0;
+                if (t > 1000) {
+                    logger.warn("EDT task executed in more than 1 sec: " + t + "ms, " +
+                    "Executor queue size: " + executorQueue.size());
 
-                    }
-                } catch (Exception e) {
-                    logger.error("EDT task exception", e);
                 }
+            } catch (Exception e) {
+                logger.error("EDT task exception", e);
             }
         });
     }

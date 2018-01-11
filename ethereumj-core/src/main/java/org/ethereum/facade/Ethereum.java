@@ -1,9 +1,23 @@
+/*
+ * Copyright (c) [2016] [ <ether.camp> ]
+ * This file is part of the ethereumJ library.
+ *
+ * The ethereumJ library is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * The ethereumJ library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with the ethereumJ library. If not, see <http://www.gnu.org/licenses/>.
+ */
 package org.ethereum.facade;
 
-import org.ethereum.core.Block;
-import org.ethereum.core.CallTransaction;
-import org.ethereum.core.Transaction;
-import org.ethereum.core.TransactionReceipt;
+import org.ethereum.core.*;
 import org.ethereum.crypto.ECKey;
 import org.ethereum.listener.EthereumListener;
 import org.ethereum.manager.AdminInfo;
@@ -91,6 +105,19 @@ public interface Ethereum {
      * @return       receipt of the executed transaction
      */
     TransactionReceipt callConstant(Transaction tx, Block block);
+
+    /**
+     * Executes Txes of the block in the same order and from the same state root
+     * as they were executed during regular block import
+     * This method doesn't make changes in blockchain state
+     *
+     * <b>Note:</b> requires block's ancestor to be presented in the database
+     *
+     * @param block block to be replayed
+     * @return block summary with receipts and execution summaries
+     *         <b>Note:</b> it doesn't include block rewards info
+     */
+    BlockSummary replayBlock(Block block);
 
     /**
      * Call a contract function locally without sending transaction to the network

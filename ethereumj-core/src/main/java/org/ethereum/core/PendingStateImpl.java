@@ -1,3 +1,20 @@
+/*
+ * Copyright (c) [2016] [ <ether.camp> ]
+ * This file is part of the ethereumJ library.
+ *
+ * The ethereumJ library is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * The ethereumJ library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with the ethereumJ library. If not, see <http://www.gnu.org/licenses/>.
+ */
 package org.ethereum.core;
 
 import static org.ethereum.listener.EthereumListener.PendingTransactionState.DROPPED;
@@ -41,17 +58,13 @@ public class PendingStateImpl implements PendingState {
 
     public static class TransactionSortedSet extends TreeSet<Transaction> {
         public TransactionSortedSet() {
-            super(new Comparator<Transaction>() {
-
-                @Override
-                public int compare(Transaction tx1, Transaction tx2) {
-                    long nonceDiff = ByteUtil.byteArrayToLong(tx1.getNonce()) -
-                            ByteUtil.byteArrayToLong(tx2.getNonce());
-                    if (nonceDiff != 0) {
-                        return nonceDiff > 0 ? 1 : -1;
-                    }
-                    return FastByteComparisons.compareTo(tx1.getHash(), 0, 32, tx2.getHash(), 0, 32);
+            super((tx1, tx2) -> {
+                long nonceDiff = ByteUtil.byteArrayToLong(tx1.getNonce()) -
+                        ByteUtil.byteArrayToLong(tx2.getNonce());
+                if (nonceDiff != 0) {
+                    return nonceDiff > 0 ? 1 : -1;
                 }
+                return FastByteComparisons.compareTo(tx1.getHash(), 0, 32, tx2.getHash(), 0, 32);
             });
         }
     }
@@ -394,9 +407,10 @@ public class PendingStateImpl implements PendingState {
 
         Block best = getBestBlock();
 
-        TransactionExecutor executor = commonConfig.transactionExecutor(
+        TransactionExecutor executor = new TransactionExecutor(
                 tx, best.getCoinbase(), getRepository(),
-                blockStore, programInvokeFactory, createFakePendingBlock(), new EthereumListenerAdapter(), 0);
+                blockStore, programInvokeFactory, createFakePendingBlock(), new EthereumListenerAdapter(), 0)
+                .withCommonConfig(commonConfig);
 
         executor.init();
         executor.execute();

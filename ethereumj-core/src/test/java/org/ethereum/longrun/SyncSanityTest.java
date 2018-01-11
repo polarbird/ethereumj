@@ -1,3 +1,20 @@
+/*
+ * Copyright (c) [2016] [ <ether.camp> ]
+ * This file is part of the ethereumJ library.
+ *
+ * The ethereumJ library is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * The ethereumJ library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with the ethereumJ library. If not, see <http://www.gnu.org/licenses/>.
+ */
 package org.ethereum.longrun;
 
 import com.typesafe.config.ConfigFactory;
@@ -56,16 +73,13 @@ public class SyncSanityTest {
         }
         if (overrideConfigPath != null) configPath.setValue(overrideConfigPath);
 
-        statTimer.scheduleAtFixedRate(new Runnable() {
-            @Override
-            public void run() {
-                try {
-                    if (fatalErrors.get() > 0) {
-                        statTimer.shutdownNow();
-                    }
-                } catch (Throwable t) {
-                    SyncSanityTest.testLogger.error("Unhandled exception", t);
+        statTimer.scheduleAtFixedRate(() -> {
+            try {
+                if (fatalErrors.get() > 0) {
+                    statTimer.shutdownNow();
                 }
+            } catch (Throwable t) {
+                SyncSanityTest.testLogger.error("Unhandled exception", t);
             }
         }, 0, 15, TimeUnit.SECONDS);
     }
@@ -136,11 +150,7 @@ public class SyncSanityTest {
     private final static long MAX_RUN_MINUTES = 180L;
 
     private static ScheduledExecutorService statTimer =
-            Executors.newSingleThreadScheduledExecutor(new ThreadFactory() {
-                public Thread newThread(Runnable r) {
-                    return new Thread(r, "StatTimer");
-                }
-            });
+            Executors.newSingleThreadScheduledExecutor(r -> new Thread(r, "StatTimer"));
 
     private static boolean logStats() {
         testLogger.info("---------====---------");
@@ -168,9 +178,7 @@ public class SyncSanityTest {
 
         runEthereum();
 
-        new Thread(new Runnable() {
-            @Override
-            public void run() {
+        new Thread(() -> {
             try {
                 while(firstRun.get()) {
                     sleep(1000);
@@ -183,7 +191,6 @@ public class SyncSanityTest {
                 runEthereum();
             } catch (Throwable e) {
                 e.printStackTrace();
-            }
             }
         }).start();
 
