@@ -2,6 +2,7 @@ import java.text.SimpleDateFormat
 
 buildscript {
     repositories {
+        maven { url 'http://maven.aliyun.com/nexus/content/repositories/central/' }
         jcenter()
         maven { url 'http://repo.spring.io/plugins-release-local' }
     }

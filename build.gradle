@@ -36,6 +36,7 @@ subprojects {
     compileTestJava.options.encoding = 'UTF-8'
 
     repositories {
+        maven { url 'http://maven.aliyun.com/nexus/content/repositories/central/' }
         jcenter()
         maven { url "https://dl.bintray.com/ethereum/maven/" }
     }
